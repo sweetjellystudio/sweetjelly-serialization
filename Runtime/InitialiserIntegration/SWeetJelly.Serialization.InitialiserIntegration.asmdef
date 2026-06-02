@@ -1,0 +1,20 @@
+{
+    "name": "SWeetJelly.Serialization.InitialiserIntegration",
+    "rootNamespace": "SWeetJelly.Serialization.InitialiserIntegration",
+    "references": [
+        "GUID:066162304675ea14488b3ab01e0113db",
+        "GUID:e27d7e5a6544abe479ed53f0ee1342f6",
+        "GUID:325bbe4f1042c544ab55cfc0b65ee8c9",
+        "GUID:cb85dc5453589f0408dbd7abb0bea325",
+        "GUID:1042aa3f63d4b9041a4ce15e5374951c"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

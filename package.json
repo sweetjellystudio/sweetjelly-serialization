@@ -1,0 +1,16 @@
+{
+  "name": "com.sweetjelly.serialization",
+  "version": "1.0.0",
+  "displayName": "SWeetJelly Serialzation",
+  "description": "This is SWeetJelly Serialization",
+  "unity": "2022.3",
+  "dependencies": {
+    "com.sweetjelly.initialiser": "1.0.0",
+    "com.sweetjelly.utils": "1.7.0"
+ },
+  "author": {
+    "name": "SWeetJellyStudio",
+    "email": "sweetjellystudio@gmail.com",
+    "url": "https://www.sweetjellystudio.com"
+  }
+}
