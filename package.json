@@ -5,6 +5,7 @@
   "description": "This is SWeetJelly Serialization",
   "unity": "2022.3",
   "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2",
     "com.sweetjelly.initialiser": "1.0.0",
     "com.sweetjelly.utils": "1.7.0"
  },
