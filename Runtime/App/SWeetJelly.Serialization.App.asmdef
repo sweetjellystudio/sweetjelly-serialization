@@ -2,7 +2,8 @@
     "name": "SWeetJelly.Serialization.App",
     "rootNamespace": "SWeetJelly.Serialization.App",
     "references": [
-        "SWeetJelly.Serialization.Contract"
+        "SWeetJelly.Serialization.Contract",
+        "SWeetJelly.Shared.Result"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],
