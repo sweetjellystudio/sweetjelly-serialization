@@ -1,8 +1,10 @@
 using System;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using SWeetJelly.Serialization.Contract;
+using SWeetJelly.Shared.Result;
 
 namespace SWeetJelly.Serialization.App
 {
@@ -33,7 +35,7 @@ namespace SWeetJelly.Serialization.App
             this.stringEncryptor = stringEncryptor;
         }
 
-        public Task SaveToPersistentDataPathAsync<T>(
+        public Task<Result> SaveToPersistentDataPathAsync<T>(
             T value,
             string fileName,
             SerializationFormat format,
@@ -46,19 +48,34 @@ namespace SWeetJelly.Serialization.App
             return SaveToPathAsync(value, path, format, ct: ct);
         }
 
-        public async Task SaveToPathAsync<T>(
+        public async Task<Result> SaveToPathAsync<T>(
             T value,
             string path,
             SerializationFormat format,
             string secureKey = "",
             CancellationToken ct = default)
         {
-            byte[] bytes = SerializeToBytes(value, format, secureKey);
+            Result<byte[]> bytesResult = SerializeToBytes(value, format, secureKey);
 
-            await fileStorage.WriteBytesAsync(path, bytes, ct);
+            if (bytesResult.IsFailure)
+                return Result.Failure(bytesResult.Error);
+
+            try
+            {
+                await fileStorage.WriteBytesAsync(path, bytesResult.Value, ct);
+                return Result.Success();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                return Result.Failure(SerializationErrors.WriteFailed(path, exception));
+            }
         }
 
-        public Task<T> LoadFromPersistentDataPathAsync<T>(
+        public Task<Result<T>> LoadFromPersistentDataPathAsync<T>(
             string fileName,
             SerializationFormat format,
             CancellationToken ct = default)
@@ -70,15 +87,30 @@ namespace SWeetJelly.Serialization.App
             return LoadFromPathAsync<T>(path, format, ct: ct);
         }
 
-        public async Task<T> LoadFromPathAsync<T>(
+        public async Task<Result<T>> LoadFromPathAsync<T>(
             string path,
             SerializationFormat format,
             string secureKey = "",
             CancellationToken ct = default)
         {
-            byte[] bytes = await fileStorage.ReadBytesAsync(path, ct);
+            try
+            {
+                byte[] bytes = await fileStorage.ReadBytesAsync(path, ct);
 
-            return DeserializeFromBytes<T>(bytes, format, secureKey);
+                return DeserializeFromBytes<T>(bytes, format, secureKey);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (FileNotFoundException)
+            {
+                return Result<T>.Failure(SerializationErrors.FileNotFound(path));
+            }
+            catch (Exception exception)
+            {
+                return Result<T>.Failure(SerializationErrors.ReadFailed(path, exception));
+            }
         }
 
         public bool ExistsAtPersistentDataPath(string fileName)
@@ -99,170 +131,212 @@ namespace SWeetJelly.Serialization.App
             fileStorage.Delete(path);
         }
 
-        public string SerializeToText<T>(T value, SerializationFormat format, string secureKey = "")
+        public Result<string> SerializeToText<T>(T value, SerializationFormat format, string secureKey = "")
         {
-            switch (format)
+            try
             {
-                case SerializationFormat.Xml:
-                    RequireXmlSerializer();
-                    return Encrypt(xmlSerializer.Serialize(value), secureKey);
+                switch (format)
+                {
+                    case SerializationFormat.Xml:
+                        RequireXmlSerializer();
+                        return Result<string>.Success(Encrypt(xmlSerializer.Serialize(value), secureKey));
 
-                case SerializationFormat.Json:
-                    RequireJsonSerializer();
-                    return Encrypt(jsonSerializer.Serialize(value), secureKey);
+                    case SerializationFormat.Json:
+                        RequireJsonSerializer();
+                        return Result<string>.Success(Encrypt(jsonSerializer.Serialize(value), secureKey));
 
-                case SerializationFormat.Binary:
-                    throw new NotSupportedException("Binary format does not support text serialization.");
+                    case SerializationFormat.Binary:
+                        return Result<string>.Failure(SerializationErrors.BinaryTextUnsupported);
 
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(format), format, null);
+                    default:
+                        return Result<string>.Failure(SerializationErrors.UnsupportedFormat(format));
+                }
+            }
+            catch (Exception exception)
+            {
+                return Result<string>.Failure(SerializationErrors.SerializeFailed(format, exception));
             }
         }
 
-        public string SerializeToText(object value, Type valueType, SerializationFormat format, string secureKey = "")
-        {
-            if (valueType == null)
-                throw new ArgumentNullException(nameof(valueType));
-
-            switch (format)
-            {
-                case SerializationFormat.Xml:
-                    RequireXmlSerializer();
-                    return Encrypt(xmlSerializer.Serialize(value, valueType), secureKey);
-
-                case SerializationFormat.Json:
-                    RequireJsonSerializer();
-                    return Encrypt(jsonSerializer.Serialize(value, valueType), secureKey);
-
-                case SerializationFormat.Binary:
-                    throw new NotSupportedException("Binary format does not support text serialization.");
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(format), format, null);
-            }
-        }
-
-        public T DeserializeFromText<T>(string text, SerializationFormat format, string secureKey = "")
-        {
-            if (string.IsNullOrWhiteSpace(text))
-                throw new ArgumentException("Serialized text cannot be empty.", nameof(text));
-
-            switch (format)
-            {
-                case SerializationFormat.Xml:
-                    RequireXmlSerializer();
-                    return xmlSerializer.Deserialize<T>(Decrypt(text, secureKey));
-
-                case SerializationFormat.Json:
-                    RequireJsonSerializer();
-                    return jsonSerializer.Deserialize<T>(Decrypt(text, secureKey));
-
-                case SerializationFormat.Binary:
-                    throw new NotSupportedException("Binary format does not support text deserialization.");
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(format), format, null);
-            }
-        }
-
-        public object DeserializeFromText(string text, Type valueType, SerializationFormat format, string secureKey = "")
+        public Result<string> SerializeToText(object value, Type valueType, SerializationFormat format, string secureKey = "")
         {
             if (valueType == null)
-                throw new ArgumentNullException(nameof(valueType));
+                return Result<string>.Failure(SerializationErrors.InvalidValueType());
 
-            if (string.IsNullOrWhiteSpace(text))
-                throw new ArgumentException("Serialized text cannot be empty.", nameof(text));
-
-            switch (format)
+            try
             {
-                case SerializationFormat.Xml:
-                    RequireXmlSerializer();
-                    return xmlSerializer.Deserialize(
-                        Decrypt(text, secureKey), valueType);
+                switch (format)
+                {
+                    case SerializationFormat.Xml:
+                        RequireXmlSerializer();
+                        return Result<string>.Success(Encrypt(xmlSerializer.Serialize(value, valueType), secureKey));
 
-                case SerializationFormat.Json:
-                    RequireJsonSerializer();
-                    return jsonSerializer.Deserialize(
-                        Decrypt(text, secureKey), valueType);
+                    case SerializationFormat.Json:
+                        RequireJsonSerializer();
+                        return Result<string>.Success(Encrypt(jsonSerializer.Serialize(value, valueType), secureKey));
 
-                case SerializationFormat.Binary:
-                    throw new NotSupportedException("Binary format does not support text deserialization.");
+                    case SerializationFormat.Binary:
+                        return Result<string>.Failure(SerializationErrors.BinaryTextUnsupported);
 
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(format), format, null);
+                    default:
+                        return Result<string>.Failure(SerializationErrors.UnsupportedFormat(format));
+                }
+            }
+            catch (Exception exception)
+            {
+                return Result<string>.Failure(SerializationErrors.SerializeFailed(format, exception));
             }
         }
 
-        private byte[] SerializeToBytes<T>(
+        public Result<T> DeserializeFromText<T>(string text, SerializationFormat format, string secureKey = "")
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return Result<T>.Failure(SerializationErrors.EmptyText);
+
+            try
+            {
+                switch (format)
+                {
+                    case SerializationFormat.Xml:
+                        RequireXmlSerializer();
+                        return Result<T>.Success(xmlSerializer.Deserialize<T>(Decrypt(text, secureKey)));
+
+                    case SerializationFormat.Json:
+                        RequireJsonSerializer();
+                        return Result<T>.Success(jsonSerializer.Deserialize<T>(Decrypt(text, secureKey)));
+
+                    case SerializationFormat.Binary:
+                        return Result<T>.Failure(SerializationErrors.BinaryTextDeserializationUnsupported);
+
+                    default:
+                        return Result<T>.Failure(SerializationErrors.UnsupportedFormat(format));
+                }
+            }
+            catch (Exception exception)
+            {
+                return Result<T>.Failure(SerializationErrors.DeserializeFailed(format, exception));
+            }
+        }
+
+        public Result<object> DeserializeFromText(string text, Type valueType, SerializationFormat format, string secureKey = "")
+        {
+            if (valueType == null)
+                return Result<object>.Failure(SerializationErrors.InvalidValueType());
+
+            if (string.IsNullOrWhiteSpace(text))
+                return Result<object>.Failure(SerializationErrors.EmptyText);
+
+            try
+            {
+                switch (format)
+                {
+                    case SerializationFormat.Xml:
+                        RequireXmlSerializer();
+                        return Result<object>.Success(xmlSerializer.Deserialize(
+                            Decrypt(text, secureKey), valueType));
+
+                    case SerializationFormat.Json:
+                        RequireJsonSerializer();
+                        return Result<object>.Success(jsonSerializer.Deserialize(
+                            Decrypt(text, secureKey), valueType));
+
+                    case SerializationFormat.Binary:
+                        return Result<object>.Failure(SerializationErrors.BinaryTextDeserializationUnsupported);
+
+                    default:
+                        return Result<object>.Failure(SerializationErrors.UnsupportedFormat(format));
+                }
+            }
+            catch (Exception exception)
+            {
+                return Result<object>.Failure(SerializationErrors.DeserializeFailed(format, exception));
+            }
+        }
+
+        private Result<byte[]> SerializeToBytes<T>(
             T value,
             SerializationFormat format,
             string secureKey)
         {
-            switch (format)
+            try
             {
-                case SerializationFormat.Binary:
-                    RequireBinarySerializer();
-                    return binarySerializer.Serialize(value);
+                switch (format)
+                {
+                    case SerializationFormat.Binary:
+                        RequireBinarySerializer();
+                        return Result<byte[]>.Success(binarySerializer.Serialize(value));
 
-                case SerializationFormat.Xml:
-                    RequireXmlSerializer();
-                    return Encoding.UTF8.GetBytes(xmlSerializer.Serialize(value));
+                    case SerializationFormat.Xml:
+                        RequireXmlSerializer();
+                        return Result<byte[]>.Success(Encoding.UTF8.GetBytes(xmlSerializer.Serialize(value)));
 
-                case SerializationFormat.Json:
-                    RequireJsonSerializer();
+                    case SerializationFormat.Json:
+                        RequireJsonSerializer();
 
-                    string json = jsonSerializer.Serialize(value);
+                        string json = jsonSerializer.Serialize(value);
 
-                    if (!string.IsNullOrEmpty(secureKey))
-                    {
-                        if (stringEncryptor == null)
-                            throw new InvalidOperationException("String encryptor is not assigned.");
+                        if (!string.IsNullOrEmpty(secureKey))
+                        {
+                            if (stringEncryptor == null)
+                                return Result<byte[]>.Failure(SerializationErrors.MissingStringEncryptor);
 
-                        json = stringEncryptor.Encrypt(json, secureKey);
-                    }
+                            json = stringEncryptor.Encrypt(json, secureKey);
+                        }
 
-                    return Encoding.UTF8.GetBytes(json);
+                        return Result<byte[]>.Success(Encoding.UTF8.GetBytes(json));
 
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(format), format, null);
+                    default:
+                        return Result<byte[]>.Failure(SerializationErrors.UnsupportedFormat(format));
+                }
+            }
+            catch (Exception exception)
+            {
+                return Result<byte[]>.Failure(SerializationErrors.SerializeFailed(format, exception));
             }
         }
 
-        private T DeserializeFromBytes<T>(
+        private Result<T> DeserializeFromBytes<T>(
             byte[] bytes,
             SerializationFormat format,
             string secureKey)
         {
             if (bytes == null || bytes.Length == 0)
-                throw new ArgumentException("Serialized bytes cannot be empty.", nameof(bytes));
+                return Result<T>.Failure(SerializationErrors.EmptyBytes);
 
-            switch (format)
+            try
             {
-                case SerializationFormat.Binary:
-                    RequireBinarySerializer();
-                    return binarySerializer.Deserialize<T>(bytes);
+                switch (format)
+                {
+                    case SerializationFormat.Binary:
+                        RequireBinarySerializer();
+                        return Result<T>.Success(binarySerializer.Deserialize<T>(bytes));
 
-                case SerializationFormat.Xml:
-                    RequireXmlSerializer();
-                    return xmlSerializer.Deserialize<T>(Encoding.UTF8.GetString(bytes));
+                    case SerializationFormat.Xml:
+                        RequireXmlSerializer();
+                        return Result<T>.Success(xmlSerializer.Deserialize<T>(Encoding.UTF8.GetString(bytes)));
 
-                case SerializationFormat.Json:
-                    RequireJsonSerializer();
+                    case SerializationFormat.Json:
+                        RequireJsonSerializer();
 
-                    string json = Encoding.UTF8.GetString(bytes);
+                        string json = Encoding.UTF8.GetString(bytes);
 
-                    if (!string.IsNullOrEmpty(secureKey))
-                    {
-                        if (stringEncryptor == null)
-                            throw new InvalidOperationException("String encryptor is not assigned.");
+                        if (!string.IsNullOrEmpty(secureKey))
+                        {
+                            if (stringEncryptor == null)
+                                return Result<T>.Failure(SerializationErrors.MissingStringEncryptor);
 
-                        json = stringEncryptor.Decrypt(json, secureKey);
-                    }
+                            json = stringEncryptor.Decrypt(json, secureKey);
+                        }
 
-                    return jsonSerializer.Deserialize<T>(json);
+                        return Result<T>.Success(jsonSerializer.Deserialize<T>(json));
 
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(format), format, null);
+                    default:
+                        return Result<T>.Failure(SerializationErrors.UnsupportedFormat(format));
+                }
+            }
+            catch (Exception exception)
+            {
+                return Result<T>.Failure(SerializationErrors.DeserializeFailed(format, exception));
             }
         }
 
@@ -291,19 +365,19 @@ namespace SWeetJelly.Serialization.App
         private void RequireJsonSerializer()
         {
             if (jsonSerializer == null)
-                throw new InvalidOperationException("Json serializer is not assigned.");
+                throw new InvalidOperationException(SerializationErrors.MissingJsonSerializer.Message);
         }
 
         private void RequireXmlSerializer()
         {
             if (xmlSerializer == null)
-                throw new InvalidOperationException("Xml serializer is not assigned.");
+                throw new InvalidOperationException(SerializationErrors.MissingXmlSerializer.Message);
         }
 
         private void RequireBinarySerializer()
         {
             if (binarySerializer == null)
-                throw new InvalidOperationException("Binary serializer is not assigned.");
+                throw new InvalidOperationException(SerializationErrors.MissingBinarySerializer.Message);
         }
     }
 }

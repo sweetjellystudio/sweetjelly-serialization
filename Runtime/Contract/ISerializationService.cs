@@ -3,28 +3,29 @@ namespace SWeetJelly.Serialization.Contract
     using System;
     using System.Threading;
     using System.Threading.Tasks;
+    using SWeetJelly.Shared.Result;
 
     public interface ISerializationService
     {
-        Task SaveToPersistentDataPathAsync<T>(
+        Task<Result> SaveToPersistentDataPathAsync<T>(
             T value,
             string fileName,
             SerializationFormat format,
             CancellationToken ct = default);
 
-        Task<T> LoadFromPersistentDataPathAsync<T>(
+        Task<Result<T>> LoadFromPersistentDataPathAsync<T>(
             string fileName,
             SerializationFormat format,
             CancellationToken ct = default);
 
-        Task SaveToPathAsync<T>(
+        Task<Result> SaveToPathAsync<T>(
             T value,
             string path,
             SerializationFormat format,
             string secureKey = "",
             CancellationToken ct = default);
 
-        Task<T> LoadFromPathAsync<T>(
+        Task<Result<T>> LoadFromPathAsync<T>(
             string path,
             SerializationFormat format,
             string secureKey = "",
@@ -34,12 +35,12 @@ namespace SWeetJelly.Serialization.Contract
 
         void DeleteAtPersistentDataPath(string fileName);
 
-        string SerializeToText<T>(T value, SerializationFormat format, string secureKey = "");
+        Result<string> SerializeToText<T>(T value, SerializationFormat format, string secureKey = "");
 
-        string SerializeToText(object value, Type valueType, SerializationFormat format, string secureKey = "");
+        Result<string> SerializeToText(object value, Type valueType, SerializationFormat format, string secureKey = "");
 
-        T DeserializeFromText<T>(string text, SerializationFormat format, string secureKey = "");
+        Result<T> DeserializeFromText<T>(string text, SerializationFormat format, string secureKey = "");
 
-        object DeserializeFromText(string text, Type valueType, SerializationFormat format, string secureKey = "");
+        Result<object> DeserializeFromText(string text, Type valueType, SerializationFormat format, string secureKey = "");
     }
 }
