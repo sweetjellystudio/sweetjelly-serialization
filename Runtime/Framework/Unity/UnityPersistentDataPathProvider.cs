@@ -2,7 +2,7 @@ using System.IO;
 using SWeetJelly.Serialization.Contract;
 using UnityEngine;
 
-namespace SWeetJelly.Serialization.Framework
+namespace SWeetJelly.Serialization.Framework.Unity
 {
     public sealed class UnityPersistentDataPathProvider : IPathProvider
     {

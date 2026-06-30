@@ -3,7 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SWeetJelly.Serialization.Contract;
 
-namespace SWeetJelly.Serialization.Framework
+namespace SWeetJelly.Serialization.Framework.Unity
 {
     public sealed class UnityFileStorage : IFileStorage
     {
