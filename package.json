@@ -7,7 +7,7 @@
     "dependencies":  {
                          "com.unity.nuget.newtonsoft-json":  "3.2.2",
                          "com.sweetjelly.bootstrapper":  "1.0.0",
-                         "com.sweetjelly.utils":  "1.7.0",
+                         "com.sweetjelly.utils":  "1.1.0",
                          "com.sweetjelly.shared":  "1.0.0"
                      },
     "author":  {
