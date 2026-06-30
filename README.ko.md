@@ -2,7 +2,7 @@
 
 SWeetJelly Serialization은 Unity 프로젝트에서 사용할 수 있는 작은 직렬화 서비스 패키지다.
 
-텍스트 직렬화, persistent data path 기반 파일 저장, 선택적 문자열 암호화, Initialiser 기반 서비스 등록을 제공한다.
+텍스트 직렬화, persistent data path 기반 파일 저장, 선택적 문자열 암호화, Bootstrapper 기반 서비스 등록을 제공한다.
 
 ## 구조
 
@@ -26,8 +26,8 @@ Runtime
 │   ├── UnityFileStorage
 │   ├── UnityPersistentDataPathProvider
 │   └── UnityResourcesReader
-└── InitialiserIntegration
-    └── SerializationInitModule
+└── Framework/Bootstrapper
+    └── SerializationPackageBootstrapperSo
 ```
 
 ## 책임
@@ -72,9 +72,9 @@ Unity에 직접 의존하는 adapter를 포함한다.
 - `UnityPersistentDataPathProvider`는 `Application.persistentDataPath`를 제공한다.
 - `UnityResourcesReader`는 Unity `Resources`의 `TextAsset` 데이터를 읽는다.
 
-### Initialiser Integration
+### Bootstrapper Integration
 
-`SerializationInitModule`은 Serialization 패키지를 Initialiser 시스템에 설치한다.
+`SerializationPackageBootstrapperSo`은 Serialization 패키지를 Initialiser 시스템에 설치한다.
 
 모듈은 다음 객체들을 생성한다.
 
@@ -107,10 +107,10 @@ Binary는 contract에는 포함되어 있지만, 현재 `BinaryDataSerializer`�
 애플리케이션 context에서 `ISerializationService`를 resolve한 뒤 데이터를 직렬화한다.
 
 ```csharp
-using SWeetJelly.Initialiser.Framework;
+using SWeetJelly.Bootstrapper.Framework.Unity;
 using SWeetJelly.Serialization.Contract;
 
-var service = InitialiserBehaviour.Services.Resolve<ISerializationService>();
+var service = BootstrapperBehaviour.Services.Resolve<ISerializationService>();
 
 var data = new PlayerData
 {
@@ -210,23 +210,23 @@ var loaded = service.DeserializeFromText<PlayerData>(
 
 secure key가 제공되었지만 `IStringEncryptor`가 할당되어 있지 않으면 `SerializationService`는 예외를 던진다.
 
-## Initialiser Setup
+## Bootstrapper Setup
 
-1. 다음 메뉴에서 `SerializationInitModule`을 만든다.
+1. 다음 메뉴에서 `SerializationPackageBootstrapperSo`을 만든다.
 
 ```text
-Create > SWeetJelly > Initialiser > Modules > Serialization
+Create > SWeetJelly > Bootstrapper > Packages > Serialization
 ```
 
 2. 생성한 module asset을 `ProjectInitSettingSo`에 추가한다.
-3. 해당 setting을 `InitialiserBehaviour`에 할당한다.
+3. 해당 setting을 `BootstrapperBehaviour`에 할당한다.
 4. Initialiser 시작 이후 `ISerializationService`를 resolve한다.
 
 ```csharp
-using SWeetJelly.Initialiser.Framework;
+using SWeetJelly.Bootstrapper.Framework.Unity;
 using SWeetJelly.Serialization.Contract;
 
-var serialization = InitialiserBehaviour.Services.Resolve<ISerializationService>();
+var serialization = BootstrapperBehaviour.Services.Resolve<ISerializationService>();
 ```
 
 ## Custom Implementations
@@ -273,6 +273,6 @@ var service = new SerializationService(
 - Unity 파일 저장 adapter
 - Unity persistent data path adapter
 - Resources 텍스트/byte reader
-- Initialiser 연동
+- Bootstrapper 연동
 
 Binary 직렬화는 아직 구현되어 있지 않다.

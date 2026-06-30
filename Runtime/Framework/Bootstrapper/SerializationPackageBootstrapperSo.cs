@@ -1,21 +1,18 @@
-namespace SWeetJelly.Serialization.InitialiserIntegration
+﻿namespace SWeetJelly.Serialization.Framework.Bootstrapper
 {
     using UnityEngine;
-    using SWeetJelly.Initialiser.Contract;
-    using SWeetJelly.Initialiser.Framework;
+    using SWeetJelly.Bootstrapper.Framework.Unity;
     using SWeetJelly.Serialization.Contract;
     using SWeetJelly.Serialization.App;
-    using SWeetJelly.Serialization.Framework;
-
-    [RegisterModule("Serialization")]
+    using SWeetJelly.Serialization.Framework.Unity;
     [CreateAssetMenu(
-        fileName = "Serialization Init Module",
-        menuName = "SWeetJelly/Initialiser/Modules/Serialization")]
-    public sealed class SerializationInitModule : InitModuleSo
+        fileName = "Serialization Package Bootstrapper",
+        menuName = "SWeetJelly/Bootstrapper/Packages/Serialization")]
+    public sealed class SerializationPackageBootstrapperSo : PackageBootstrapperSo
     {
-        public override string ModuleName => "Serialization";
+        public override string PackageName => "Serialization";
 
-        public override void Install(InitModuleInstallContext context)
+        public override void Bootstrap(PackageBootstrapContext context)
         {
             IPathProvider pathProvider = new UnityPersistentDataPathProvider();
             IFileStorage fileStorage = new UnityFileStorage();

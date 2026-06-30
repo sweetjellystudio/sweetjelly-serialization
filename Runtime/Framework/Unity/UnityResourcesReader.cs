@@ -1,7 +1,7 @@
 using System;
 using UnityEngine;
 
-namespace SWeetJelly.Serialization.Framework
+namespace SWeetJelly.Serialization.Framework.Unity
 {
     public sealed class UnityResourcesReader
     {

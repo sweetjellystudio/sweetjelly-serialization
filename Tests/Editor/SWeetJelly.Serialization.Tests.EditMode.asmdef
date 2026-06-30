@@ -1,0 +1,28 @@
+{
+    "name": "SWeetJelly.Serialization.Tests.EditMode",
+    "rootNamespace": "SWeetJelly.Serialization.Tests.EditMode",
+    "references": [
+        "SWeetJelly.Serialization.Contract",
+        "SWeetJelly.Serialization.App",
+        "SWeetJelly.Serialization.Framework.Unity",
+        "SWeetJelly.Serialization.Framework.Bootstrapper",
+        "SWeetJelly.Shared.Result",
+        "SWeetJelly.Bootstrapper.Contract",
+        "SWeetJelly.Bootstrapper.App",
+        "SWeetJelly.Bootstrapper.Framework.Unity"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}

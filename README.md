@@ -26,8 +26,8 @@ Runtime
 │   ├── UnityFileStorage
 │   ├── UnityPersistentDataPathProvider
 │   └── UnityResourcesReader
-└── InitialiserIntegration
-    └── SerializationInitModule
+└── Framework/Bootstrapper
+    └── SerializationPackageBootstrapperSo
 ```
 
 ## Responsibilities
@@ -73,9 +73,9 @@ Contains Unity-specific adapters.
 - `UnityPersistentDataPathProvider` exposes `Application.persistentDataPath`.
 - `UnityResourcesReader` reads `TextAsset` data from Unity `Resources`.
 
-### Initialiser Integration
+### Bootstrapper Integration
 
-`SerializationInitModule` installs the serialization module into the Initialiser system.
+`SerializationPackageBootstrapperSo` installs the serialization module into the Bootstrapper system.
 
 It creates:
 
@@ -108,10 +108,10 @@ Binary is part of the contract, but the current `BinaryDataSerializer` throws `N
 Resolve `ISerializationService` from the application context and serialize data.
 
 ```csharp
-using SWeetJelly.Initialiser.Framework;
+using SWeetJelly.Bootstrapper.Framework.Unity;
 using SWeetJelly.Serialization.Contract;
 
-var service = InitialiserBehaviour.Services.Resolve<ISerializationService>();
+var service = BootstrapperBehaviour.Services.Resolve<ISerializationService>();
 
 var data = new PlayerData
 {
@@ -211,23 +211,23 @@ The same secure key must be used for serialization and deserialization.
 
 If a secure key is provided and no `IStringEncryptor` is assigned, `SerializationService` returns a failed result.
 
-## Initialiser Setup
+## Bootstrapper Setup
 
-1. Create `SerializationInitModule` from:
+1. Create `SerializationPackageBootstrapperSo` from:
 
 ```text
-Create > SWeetJelly > Initialiser > Modules > Serialization
+Create > SWeetJelly > Bootstrapper > Packages > Serialization
 ```
 
 2. Add the module asset to a `ProjectInitSettingSo`.
-3. Assign that setting to `InitialiserBehaviour`.
-4. Resolve `ISerializationService` after Initialiser startup.
+3. Assign that setting to `BootstrapperBehaviour`.
+4. Resolve `ISerializationService` after Bootstrapper startup.
 
 ```csharp
-using SWeetJelly.Initialiser.Framework;
+using SWeetJelly.Bootstrapper.Framework.Unity;
 using SWeetJelly.Serialization.Contract;
 
-var serialization = InitialiserBehaviour.Services.Resolve<ISerializationService>();
+var serialization = BootstrapperBehaviour.Services.Resolve<ISerializationService>();
 ```
 
 ## Custom Implementations
@@ -275,6 +275,6 @@ This package currently provides:
 - Unity file storage adapter
 - Unity persistent data path adapter
 - Resources text/byte reader
-- Initialiser integration
+- Bootstrapper integration
 
 Binary serialization is not implemented yet.
