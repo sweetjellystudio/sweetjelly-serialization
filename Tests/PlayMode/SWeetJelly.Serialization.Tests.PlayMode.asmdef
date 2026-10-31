@@ -1,0 +1,27 @@
+{
+    "name": "SWeetJelly.Serialization.Tests.PlayMode",
+    "rootNamespace": "SWeetJelly.Serialization.Tests.PlayMode",
+    "references": [
+        "SWeetJelly.Serialization.Contract",
+        "SWeetJelly.Serialization.App",
+        "SWeetJelly.Serialization.Framework.Unity",
+        "SWeetJelly.Serialization.Framework.Bootstrapper",
+        "SWeetJelly.Shared.Result",
+        "SWeetJelly.Bootstrapper.Contract",
+        "SWeetJelly.Bootstrapper.App",
+        "SWeetJelly.Bootstrapper.Framework.Unity",
+        "SWeetJelly.Serialization.Framework.Serialization"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "noEngineReferences": false
+}

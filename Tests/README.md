@@ -1,23 +1,18 @@
-# Serialization Tests
+# Serialization tests
 
-이 폴더는 `com.sweetjelly.serialization` 패키지를 현재 Unity 테스트 프로젝트에서 검증하기 위한 테스트를 담는다.
+Add com.sweetjelly.serialization to the project's testables list with Unity Test Framework 1.6.0 available. Run EditMode assembly SWeetJelly.Serialization.Tests.EditMode and PlayMode assembly SWeetJelly.Serialization.Tests.PlayMode separately through Test Runner or the installed Pipeline test commands. Record actual Editor patch, platform/backend, nonzero counts and report path.
 
 ## EditMode
 
-`EditMode` 테스트는 Unity 파일 시스템에 직접 의존하지 않도록 fake path provider와 memory file storage를 사용한다.
+Existing generic JSON/XML, memory-file, secure JSON, Binary text failure Result and bootstrap registration tests are retained. Regressions cover object/Type overloads, fixed 1.x fixtures, authenticated random writes, independent OpenSSL compatibility, wrong keys, salt/IV/ciphertext/tag changes, unknown versions, malformed data, encrypted JSON/XML files, no plaintext fallback or read-time rewrite, custom/missing Binary adapters, specific dependency errors, DTD rejection, cancellation, IO/path errors and bootstrap registration ownership/retry/shutdown.
 
-- `SerializationServiceTest`
-  - JSON 직렬화와 역직렬화 round trip을 검증한다.
-  - XML 직렬화와 역직렬화 round trip을 검증한다.
-  - persistent data path 저장/불러오기 흐름을 memory storage로 검증한다.
-  - secure key를 사용한 JSON 암호화/복호화 흐름을 검증한다.
-  - Binary format의 text serialization이 지원되지 않아 `NotSupportedException`을 발생시키는지 검증한다.
+The [fixtures][fixtures] are immutable compatibility evidence. Do not regenerate legacy files using the current writer to make tests pass. Crypto tests intentionally perform a real expensive KDF; avoid zero-test/stale-report pass claims.
 
-- `SerializationPackageIntegrationTest`
-  - `SerializationPackageBootstrapperSo`이 `ISerializationService`를 `ServiceRegistry`에 등록하는지 검증한다.
+## PlayMode and consumers
 
-## PlayMode
+Runtime tests exercise real temporary files for JSON/XML and encrypted XML plus bootstrap registration across frames. They delete only their own uniquely named files. Package tests do not change or test the user's actual save files.
 
-현재 serialization 패키지에는 PlayMode 테스트를 두지 않았다.
+The development host additionally verifies the actual imported sample, independent declared-dependency consumption, save's contract consumers, and Windows Mono/IL2CPP Player behavior with preserved DTOs. These are separate results, not proof of every game model, platform permission or generic AOT instantiation. Consumers must preserve reflection DTOs/converters as described in [migration][migration]. Actual transient reports belong to the host work record, not shipped package content.
 
-실제 `Application.persistentDataPath`, Unity `Resources`, 플랫폼별 파일 권한까지 검증해야 할 때 `PlayMode` 테스트를 추가한다.
+[fixtures]: Fixtures/README.md
+[migration]: ../docs/migration-2.0.md

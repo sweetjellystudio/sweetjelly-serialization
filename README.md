@@ -1,280 +1,71 @@
 # SWeetJelly Serialization
 
-SWeetJelly Serialization provides a small serialization service for Unity projects.
+Serialization services and adapters for Unity 6.3 LTS. JSON/XML, optional authenticated text encryption, file IO and Bootstrapper registration are provided. Game save schemas, scheduling, atomic writes and key management belong to consumers.
 
-It supports text serialization, persistent data path file storage, optional string encryption, and Initialiser-based service registration.
+## Installation
 
-## Structure
+After the 2.0.0 tag is published, add the custom Git dependencies explicitly in your project's Packages/manifest.json. UPM package dependencies cannot themselves contain Git URLs.
 
-```text
-Runtime
-├── Contract
-│   ├── ISerializationService
-│   ├── ITextSerializer
-│   ├── IBinarySerializer
-│   ├── IStringEncryptor
-│   ├── IFileStorage
-│   ├── IPathProvider
-│   └── SerializationFormat
-├── App
-│   ├── SerializationService
-│   ├── JsonDataSerializer
-│   ├── XmlDataSerializer
-│   ├── BinaryDataSerializer
-│   └── AesStringEncryptor
-├── Framework
-│   ├── UnityFileStorage
-│   ├── UnityPersistentDataPathProvider
-│   └── UnityResourcesReader
-└── Framework/Bootstrapper
-    └── SerializationPackageBootstrapperSo
+```json
+{
+  "dependencies": {
+    "com.sweetjelly.serialization": "https://github.com/sweetjellystudio/sweetjelly-serialization.git#v2.0.0",
+    "com.sweetjelly.bootstrapper": "https://github.com/sweetjellystudio/sweetjelly-bootstrapper.git#v2.0.0",
+    "com.sweetjelly.shared": "https://github.com/sweetjellystudio/sweetjelly-shared.git#v2.0.0"
+  }
+}
 ```
 
-## Responsibilities
+Newtonsoft.Json 3.2.2 and Bootstrapper's uGUI dependency resolve through UPM. Merge these entries into the existing manifest; do not replace unrelated project dependencies. For 1.x consumers, read [migration][migration]. Root [LICENSE.md][license] is MIT.
 
-### Contract
+## Usage
 
-Defines the public serialization API.
+Normal consumers reference SWeetJelly.Serialization.Contract and obtain ISerializationService from their composition root. The included SerializationPackageBootstrapperSo registers defaults through Bootstrapper and unregisters its own service on shutdown. Existing asset/script GUIDs are preserved.
 
-- `ISerializationService`
-- `ITextSerializer`
-- `IBinarySerializer`
-- `IStringEncryptor`
-- `IFileStorage`
-- `IPathProvider`
-- `SerializationFormat`
-- `SerializationErrors`
-
-### App
-
-Contains Unity-independent serialization flow and default serializer implementations.
-
-`SerializationService` is responsible for:
-
-- serializing values to text
-- deserializing values from text
-- saving serialized bytes to a path
-- loading serialized bytes from a path
-- resolving persistent data path file names
-- applying optional encryption when a secure key is provided
-
-Default implementations include:
-
-- `JsonDataSerializer` using Newtonsoft Json
-- `XmlDataSerializer` using `System.Xml.Serialization.XmlSerializer`
-- `AesStringEncryptor` for secure text serialization
-- `BinaryDataSerializer` placeholder implementation
-
-### Framework
-
-Contains Unity-specific adapters.
-
-- `UnityFileStorage` reads, writes, checks, and deletes files.
-- `UnityPersistentDataPathProvider` exposes `Application.persistentDataPath`.
-- `UnityResourcesReader` reads `TextAsset` data from Unity `Resources`.
-
-### Bootstrapper Integration
-
-`SerializationPackageBootstrapperSo` installs the serialization module into the Bootstrapper system.
-
-It creates:
-
-- `UnityPersistentDataPathProvider`
-- `UnityFileStorage`
-- `JsonDataSerializer`
-- `XmlDataSerializer`
-- `BinaryDataSerializer`
-- `AesStringEncryptor`
-- `SerializationService`
-
-Then it registers the service as `ISerializationService`.
-
-## Serialization Formats
-
-`SerializationFormat` currently defines:
+Direct composition additionally references App, Framework.Serialization and Framework.Unity:
 
 ```csharp
-SerializationFormat.Binary
-SerializationFormat.Xml
-SerializationFormat.Json
-```
-
-JSON and XML are supported for text serialization.
-
-Binary is part of the contract, but the current `BinaryDataSerializer` throws `NotSupportedException`. Do not use `SerializationFormat.Binary` until a real binary serializer is provided.
-
-## Basic Usage
-
-Resolve `ISerializationService` from the application context and serialize data.
-
-```csharp
-using SWeetJelly.Bootstrapper.Framework.Unity;
+using SWeetJelly.Serialization.App;
 using SWeetJelly.Serialization.Contract;
+using SWeetJelly.Serialization.Framework.Serialization;
+using SWeetJelly.Serialization.Framework.Unity;
 
-var service = BootstrapperBehaviour.Services.Resolve<ISerializationService>();
-
-var data = new PlayerData
-{
-    Level = 3,
-    Name = "Sweet"
-};
-
-var json = service.SerializeToText(data, SerializationFormat.Json);
-
-if (json.IsFailure)
-    return;
-
-var loaded = service.DeserializeFromText<PlayerData>(json.Value, SerializationFormat.Json);
-
-if (loaded.IsSuccess)
-{
-    var player = loaded.Value;
-}
-```
-
-## Persistent Data Path
-
-Use the persistent data path helpers when the file should be stored under Unity `Application.persistentDataPath`.
-
-```csharp
-var saveResult = await service.SaveToPersistentDataPathAsync(
-    data,
-    "player-data.json",
-    SerializationFormat.Json,
-    cancellationToken);
-
-if (saveResult.IsFailure)
-    return;
-
-var loaded = await service.LoadFromPersistentDataPathAsync<PlayerData>(
-    "player-data.json",
-    SerializationFormat.Json,
-    cancellationToken);
-
-if (loaded.IsSuccess)
-{
-    var player = loaded.Value;
-}
-```
-
-Check or delete the same file through the service.
-
-```csharp
-if (service.ExistsAtPersistentDataPath("player-data.json"))
-{
-    service.DeleteAtPersistentDataPath("player-data.json");
-}
-```
-
-## Custom Paths
-
-Use explicit paths when another system owns the location.
-
-```csharp
-var saveResult = await service.SaveToPathAsync(
-    data,
-    fullPath,
-    SerializationFormat.Json,
-    secureKey: "",
-    ct: cancellationToken);
-
-if (saveResult.IsFailure)
-    return;
-
-var loaded = await service.LoadFromPathAsync<PlayerData>(
-    fullPath,
-    SerializationFormat.Json,
-    secureKey: "",
-    ct: cancellationToken);
-```
-
-## Secure Text
-
-Pass a non-empty secure key to encrypt serialized text.
-
-```csharp
-var secureText = service.SerializeToText(
-    data,
-    SerializationFormat.Json,
-    secureKey: "local-save-key");
-
-if (secureText.IsFailure)
-    return;
-
-var loaded = service.DeserializeFromText<PlayerData>(
-    secureText.Value,
-    SerializationFormat.Json,
-    secureKey: "local-save-key");
-```
-
-The same secure key must be used for serialization and deserialization.
-
-If a secure key is provided and no `IStringEncryptor` is assigned, `SerializationService` returns a failed result.
-
-## Bootstrapper Setup
-
-1. Create `SerializationPackageBootstrapperSo` from:
-
-```text
-Create > SWeetJelly > Bootstrapper > Packages > Serialization
-```
-
-2. Add the module asset to a `ProjectInitSettingSo`.
-3. Assign that setting to `BootstrapperBehaviour`.
-4. Resolve `ISerializationService` after Bootstrapper startup.
-
-```csharp
-using SWeetJelly.Bootstrapper.Framework.Unity;
-using SWeetJelly.Serialization.Contract;
-
-var serialization = BootstrapperBehaviour.Services.Resolve<ISerializationService>();
-```
-
-## Custom Implementations
-
-`SerializationService` depends on contracts, so tests or projects can replace infrastructure.
-
-Useful replacement points:
-
-- `IFileStorage`
-- `IPathProvider`
-- `ITextSerializer`
-- `IBinarySerializer`
-- `IStringEncryptor`
-
-Example:
-
-```csharp
 var service = new SerializationService(
-    fileStorage,
-    pathProvider,
-    jsonSerializer,
-    xmlSerializer,
-    binarySerializer,
-    encryptor);
+    new UnityFileStorage(), new UnityPersistentDataPathProvider(),
+    new JsonDataSerializer(), new XmlDataSerializer(),
+    stringEncryptor: new AesStringEncryptor());
+
+var text = service.SerializeToText(data, SerializationFormat.Json);
+if (text.IsSuccess)
+{
+    var restored = service.DeserializeFromText<MyData>(text.Value, SerializationFormat.Json);
+    // Check restored.IsSuccess before using restored.Value.
+}
+
+// In an async method, with a consumer-supplied key and cancellation token:
+var saved = await service.SaveToPathAsync(data, fullPath, SerializationFormat.Xml, key, ct);
+var loaded = await service.LoadFromPathAsync<MyData>(fullPath, SerializationFormat.Xml, key, ct);
 ```
 
-## Design Notes
+The snippet uses application-defined data/MyData, fullPath, key and ct. Check every Result before accessing Value. Persistent-path helpers use a filename and no encryption key parameter; use the explicit path methods for encrypted files. ExistsAtPersistentDataPath/DeleteAtPersistentDataPath retain synchronous IO exceptions.
 
-- The public API is exposed through `SWeetJelly.Serialization.Contract`.
-- Unity file system details stay in `SWeetJelly.Serialization.Framework`.
-- `SerializationService` does not depend on Unity APIs.
-- Consumers should depend on `ISerializationService`, not concrete serializer implementations.
-- Serialization operations return `Result` or `Result<T>` and use `SerializationErrors` for package-owned failure descriptions.
-- Save, loading, or gameplay systems should treat serialization as an infrastructure service.
+## Formats, errors and cancellation
 
-## Current Status
+JSON uses Newtonsoft defaults; XML uses XmlSerializer, writes an UTF-8 declaration and rejects DTDs. JSON null behavior and custom global JsonConvert settings follow Newtonsoft. XML requires a supported DTO with a public parameterless constructor. The generic and object/Type text overloads are supported.
 
-This package currently provides:
+Binary enum value 0 remains available for a custom IBinarySerializer in file APIs; no BinaryDataSerializer is shipped. Binary text requests fail, missing codecs return specific Missing errors, and a Binary file request with secureKey fails rather than ignoring the key.
 
-- JSON text serialization
-- XML text serialization
-- optional AES string encryption
-- persistent data path save/load helpers
-- explicit path save/load helpers
-- Unity file storage adapter
-- Unity persistent data path adapter
-- Resources text/byte reader
-- Bootstrapper integration
+JSON/XML secureKey enables the versioned authenticated envelope for both text and file APIs. New data has random salt/IV and tamper authentication. Existing 1.x encrypted data can be read, but that old format has no integrity guarantee. Reading never rewrites data. See [the encryption format][encryption] for the protocol, cost and limitations.
 
-Binary serialization is not implemented yet.
+Async operations check cancellation before synchronous codec work and around IO; cancellation propagates as OperationCanceledException. Ordinary codec/path/IO errors return Result failures. A token cannot interrupt synchronous serialization/KDF work already running. Writes are not atomic and concurrent writers need consumer coordination. The service borrows injected adapters and does not dispose them or cancel in-flight calls on bootstrap shutdown.
+
+## Samples and validation
+
+Import the Basic sample through Package Manager and follow [its instructions][sample]. Reflection-based IL2CPP consumers must preserve their actual DTOs/converters; sample link.xml covers only the sample model. Read [Tests][tests] for coverage and [architecture][architecture] for boundaries. Runtime results are specific to the tested Editor, backend and model; no all-platform verification is implied.
+
+[migration]: docs/migration-2.0.md
+[license]: LICENSE.md
+[encryption]: docs/encryption-format.md
+[sample]: Samples~/Basic/README.md
+[tests]: Tests/README.md
+[architecture]: ARCHITECTURE.md

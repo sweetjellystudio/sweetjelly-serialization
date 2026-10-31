@@ -8,6 +8,7 @@ namespace SWeetJelly.Serialization.Tests.EditMode
     using NUnit.Framework;
     using SWeetJelly.Serialization.App;
     using SWeetJelly.Serialization.Contract;
+    using SWeetJelly.Serialization.Framework.Serialization;
 
     public sealed class SerializationServiceTest
     {
@@ -124,7 +125,7 @@ namespace SWeetJelly.Serialization.Tests.EditMode
                 pathProvider ?? new FakePathProvider("root"),
                 new JsonDataSerializer(),
                 new XmlDataSerializer(),
-                new BinaryDataSerializer(),
+                null,
                 new AesStringEncryptor());
         }
 
