@@ -2,7 +2,7 @@ using System;
 using Newtonsoft.Json;
 using SWeetJelly.Serialization.Contract;
 
-namespace SWeetJelly.Serialization.App
+namespace SWeetJelly.Serialization.Framework.Serialization
 {
     public sealed class JsonDataSerializer : ITextSerializer
     {

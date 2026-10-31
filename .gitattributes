@@ -23,4 +23,7 @@
 *.psd binary
 *.fbx binary
 *.dll binary
+
+# Preserve the exact bytes produced by the 1.x XML writer.
+Tests/Fixtures/legacy.xml -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 *.unitypackage binary

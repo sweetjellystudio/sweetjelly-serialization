@@ -2,8 +2,7 @@
     "name": "SWeetJelly.Serialization.Framework.Unity",
     "rootNamespace": "SWeetJelly.Serialization.Framework.Unity",
     "references": [
-        "SWeetJelly.Serialization.Contract",
-        "SWeetJelly.Serialization.App"
+        "SWeetJelly.Serialization.Contract"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

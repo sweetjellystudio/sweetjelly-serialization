@@ -29,6 +29,12 @@ namespace SWeetJelly.Serialization.Contract
         public static readonly Error BinaryTextDeserializationUnsupported =
             new Error("Serialization.BinaryTextDeserializationUnsupported", "Binary format does not support text deserialization.");
 
+        public static readonly Error BinaryEncryptionUnsupported =
+            new Error("Serialization.BinaryEncryptionUnsupported", "String encryption is not supported for binary data.");
+
+        public static Error PathFailed(string fileName, Exception exception) =>
+            new Error("Serialization.PathFailed", $"Failed to resolve path '{fileName}'. {exception.Message}");
+
         public static Error InvalidValueType()
         {
             return new Error("Serialization.InvalidValueType", "Value type cannot be null.");

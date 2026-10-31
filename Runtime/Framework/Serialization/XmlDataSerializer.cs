@@ -1,9 +1,11 @@
 using System;
 using System.IO;
 using System.Xml.Serialization;
+using System.Xml;
+using System.Text;
 using SWeetJelly.Serialization.Contract;
 
-namespace SWeetJelly.Serialization.App
+namespace SWeetJelly.Serialization.Framework.Serialization
 {
     public sealed class XmlDataSerializer : ITextSerializer
     {
@@ -26,7 +28,7 @@ namespace SWeetJelly.Serialization.App
 
             var serializer = new XmlSerializer(type);
 
-            using var writer = new StringWriter();
+            using var writer = new Utf8StringWriter();
             serializer.Serialize(writer, value);
 
             return writer.ToString();
@@ -35,6 +37,11 @@ namespace SWeetJelly.Serialization.App
         public T Deserialize<T>(string text)
         {
             return (T)Deserialize(text, typeof(T));
+        }
+
+        private sealed class Utf8StringWriter : StringWriter
+        {
+            public override Encoding Encoding => Encoding.UTF8;
         }
 
         public object Deserialize(string text, Type type)
@@ -47,7 +54,8 @@ namespace SWeetJelly.Serialization.App
 
             var serializer = new XmlSerializer(type);
 
-            using var reader = new StringReader(text);
+            using var textReader = new StringReader(text);
+            using var reader = XmlReader.Create(textReader, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null });
             return serializer.Deserialize(reader);
         }
     }

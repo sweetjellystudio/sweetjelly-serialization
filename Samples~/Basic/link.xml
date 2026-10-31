@@ -1,0 +1,5 @@
+<linker>
+  <assembly fullname="SWeetJelly.Serialization.Sample">
+    <type fullname="SWeetJelly.Samples.Serialization.SerializationSampleData" preserve="all" />
+  </assembly>
+</linker>

@@ -1,278 +1,32 @@
 # SWeetJelly Serialization
 
-SWeetJelly Serialization은 Unity 프로젝트에서 사용할 수 있는 작은 직렬화 서비스 패키지다.
+Unity 6.3 LTS용 직렬화 서비스다. JSON/XML, 선택적 인증 암호화, 파일 IO adapter와 Bootstrapper 등록을 제공한다. 게임 저장 모델·저장 주기·원자적 파일 교체·키 보관 정책은 소비자가 소유한다.
 
-텍스트 직렬화, persistent data path 기반 파일 저장, 선택적 문자열 암호화, Bootstrapper 기반 서비스 등록을 제공한다.
+## 설치와 사용
 
-## 구조
+공개 2.0.0 태그 게시 후 소비 프로젝트 manifest에 serialization·bootstrapper·shared Git URL을 각각 명시한다. 정확한 JSON과 직접 생성 예제는 [영문 README][readme]가 소유한다. Newtonsoft.Json 3.2.2와 Bootstrapper가 요구하는 uGUI는 UPM으로 해석한다. 기존 프로젝트의 다른 의존성을 덮어쓰지 않는다. 루트 [LICENSE][license]는 MIT다.
 
-```text
-Runtime
-├── Contract
-│   ├── ISerializationService
-│   ├── ITextSerializer
-│   ├── IBinarySerializer
-│   ├── IStringEncryptor
-│   ├── IFileStorage
-│   ├── IPathProvider
-│   └── SerializationFormat
-├── App
-│   ├── SerializationService
-│   ├── JsonDataSerializer
-│   ├── XmlDataSerializer
-│   ├── BinaryDataSerializer
-│   └── AesStringEncryptor
-├── Framework
-│   ├── UnityFileStorage
-│   ├── UnityPersistentDataPathProvider
-│   └── UnityResourcesReader
-└── Framework/Bootstrapper
-    └── SerializationPackageBootstrapperSo
-```
+일반 소비자는 Contract의 ISerializationService를 조립 지점에서 받는다. 직접 생성할 때에는 App의 SerializationService와 Framework.Serialization의 JsonDataSerializer/XmlDataSerializer/AesStringEncryptor, 필요한 Framework.Unity adapter를 조합한다. 결과의 IsSuccess를 확인한 후 Value를 사용한다.
 
-## 책임
+## 2.0의 변경
 
-### Contract
+*   구체 codec/encryptor는 App namespace/assembly에서 Framework.Serialization로 이동했다. 서비스와 포트의 기존 공개 메서드는 유지한다.
+*   기본 Binary placeholder는 제거했다. Binary=0, Xml=1, Json=2는 유지하며 사용자 IBinarySerializer로 Binary 파일 기능을 제공할 수 있다. Binary text와 Binary+secureKey는 실패한다.
+*   새 암호문은 버전·무작위 salt/IV·변조 검증을 포함한다. 기존 암호문은 읽을 수 있으며 명시적 재저장 시 새 형식을 쓴다. 읽기만으로 파일을 덮어쓰지 않는다. 새 형식은 1.x에서 읽을 수 없다.
+*   XML 파일도 secureKey를 적용한다. 1.x에서 키가 무시돼 평문으로 저장된 XML은 키 없이 읽은 후 필요한 경우 새로 암호화 저장한다. 복호화 실패 후 평문 fallback은 하지 않는다.
+*   사전 취소는 작업 전에 확인하고 비동기 취소는 OperationCanceledException으로 전파한다. 일반 직렬화·경로·IO 실패는 Result, Exists/Delete의 동기 오류는 예외다. 진행 중인 동기 codec/KDF를 토큰이 중단하지는 못한다.
+*   Bootstrapper 종료는 자신이 등록한 동일 인스턴스만 해제한다. 외부 adapter dispose나 진행 중 요청 취소로 해석하지 않는다. bootstrap asset instance 하나는 활성 등록 하나만 소유한다.
 
-외부에서 사용할 공개 직렬화 API를 정의한다.
+자세한 이전 절차와 모델 보존은 [migration][migration], 암호화 형식·legacy 한계·동기 KDF 비용은 [encryption][encryption]을 읽는다. 기존 암호문에는 인증이 없으므로 새 형식과 같은 변조 검증을 보장하지 않는다. 게임 모델 자체의 필드 변경을 자동 이전하지 않는다.
 
-- `ISerializationService`
-- `ITextSerializer`
-- `IBinarySerializer`
-- `IStringEncryptor`
-- `IFileStorage`
-- `IPathProvider`
-- `SerializationFormat`
+## 테스트와 sample
 
-### App
+Package Manager에서 Basic sample을 가져오고 [sample 안내][sample]를 따른다. IL2CPP reflection에는 실제 DTO와 converter 보존이 필요하며 sample link.xml은 sample 모델만 보존한다. [테스트 안내][tests]와 [아키텍처][architecture]를 참고한다. 호스트·격리·Player 결과와 미검증 플랫폼을 구분한다.
 
-Unity에 의존하지 않는 직렬화 흐름과 기본 serializer 구현을 포함한다.
-
-`SerializationService`의 책임은 다음과 같다.
-
-- 값을 텍스트로 직렬화한다.
-- 텍스트를 값으로 역직렬화한다.
-- 직렬화된 byte 데이터를 특정 경로에 저장한다.
-- 특정 경로에서 byte 데이터를 읽어 역직렬화한다.
-- persistent data path 기준 파일 경로를 구성한다.
-- secure key가 제공되면 선택적으로 암호화를 적용한다.
-
-기본 구현은 다음과 같다.
-
-- Newtonsoft Json 기반 `JsonDataSerializer`
-- `System.Xml.Serialization.XmlSerializer` 기반 `XmlDataSerializer`
-- secure text 직렬화를 위한 `AesStringEncryptor`
-- placeholder 상태의 `BinaryDataSerializer`
-
-### Framework
-
-Unity에 직접 의존하는 adapter를 포함한다.
-
-- `UnityFileStorage`는 파일 읽기, 쓰기, 존재 확인, 삭제를 처리한다.
-- `UnityPersistentDataPathProvider`는 `Application.persistentDataPath`를 제공한다.
-- `UnityResourcesReader`는 Unity `Resources`의 `TextAsset` 데이터를 읽는다.
-
-### Bootstrapper Integration
-
-`SerializationPackageBootstrapperSo`은 Serialization 패키지를 Initialiser 시스템에 설치한다.
-
-모듈은 다음 객체들을 생성한다.
-
-- `UnityPersistentDataPathProvider`
-- `UnityFileStorage`
-- `JsonDataSerializer`
-- `XmlDataSerializer`
-- `BinaryDataSerializer`
-- `AesStringEncryptor`
-- `SerializationService`
-
-이후 서비스를 `ISerializationService`로 등록한다.
-
-## Serialization Formats
-
-`SerializationFormat`은 현재 다음 값을 정의한다.
-
-```csharp
-SerializationFormat.Binary
-SerializationFormat.Xml
-SerializationFormat.Json
-```
-
-JSON과 XML은 텍스트 직렬화를 지원한다.
-
-Binary는 contract에는 포함되어 있지만, 현재 `BinaryDataSerializer`는 `NotSupportedException`을 던진다. 실제 binary serializer가 제공되기 전까지는 `SerializationFormat.Binary`를 사용하지 않는다.
-
-## 기본 사용법
-
-애플리케이션 context에서 `ISerializationService`를 resolve한 뒤 데이터를 직렬화한다.
-
-```csharp
-using SWeetJelly.Bootstrapper.Framework.Unity;
-using SWeetJelly.Serialization.Contract;
-
-var service = BootstrapperBehaviour.Services.Resolve<ISerializationService>();
-
-var data = new PlayerData
-{
-    Level = 3,
-    Name = "Sweet"
-};
-
-var json = service.SerializeToText(data, SerializationFormat.Json);
-
-if (json.IsFailure)
-    return;
-
-var loaded = service.DeserializeFromText<PlayerData>(json.Value, SerializationFormat.Json);
-
-if (loaded.IsSuccess)
-{
-    var player = loaded.Value;
-}
-```
-
-## Persistent Data Path
-
-Unity `Application.persistentDataPath` 아래에 파일을 저장해야 한다면 persistent data path helper를 사용한다.
-
-```csharp
-var saveResult = await service.SaveToPersistentDataPathAsync(
-    data,
-    "player-data.json",
-    SerializationFormat.Json,
-    cancellationToken);
-
-if (saveResult.IsFailure)
-    return;
-
-var loaded = await service.LoadFromPersistentDataPathAsync<PlayerData>(
-    "player-data.json",
-    SerializationFormat.Json,
-    cancellationToken);
-
-if (loaded.IsSuccess)
-{
-    var player = loaded.Value;
-}
-```
-
-같은 파일에 대해 존재 확인이나 삭제도 처리할 수 있다.
-
-```csharp
-if (service.ExistsAtPersistentDataPath("player-data.json"))
-{
-    service.DeleteAtPersistentDataPath("player-data.json");
-}
-```
-
-## Custom Paths
-
-다른 시스템이 저장 위치를 관리한다면 명시적인 경로 API를 사용한다.
-
-```csharp
-var saveResult = await service.SaveToPathAsync(
-    data,
-    fullPath,
-    SerializationFormat.Json,
-    secureKey: "",
-    ct: cancellationToken);
-
-if (saveResult.IsFailure)
-    return;
-
-var loaded = await service.LoadFromPathAsync<PlayerData>(
-    fullPath,
-    SerializationFormat.Json,
-    secureKey: "",
-    ct: cancellationToken);
-```
-
-## Secure Text
-
-비어 있지 않은 secure key를 전달하면 직렬화된 텍스트를 암호화한다.
-
-```csharp
-var secureText = service.SerializeToText(
-    data,
-    SerializationFormat.Json,
-    secureKey: "local-save-key");
-
-if (secureText.IsFailure)
-    return;
-
-var loaded = service.DeserializeFromText<PlayerData>(
-    secureText.Value,
-    SerializationFormat.Json,
-    secureKey: "local-save-key");
-```
-
-직렬화와 역직렬화에는 같은 secure key를 사용해야 한다.
-
-secure key가 제공되었지만 `IStringEncryptor`가 할당되어 있지 않으면 `SerializationService`는 예외를 던진다.
-
-## Bootstrapper Setup
-
-1. 다음 메뉴에서 `SerializationPackageBootstrapperSo`을 만든다.
-
-```text
-Create > SWeetJelly > Bootstrapper > Packages > Serialization
-```
-
-2. 생성한 module asset을 `ProjectInitSettingSo`에 추가한다.
-3. 해당 setting을 `BootstrapperBehaviour`에 할당한다.
-4. Initialiser 시작 이후 `ISerializationService`를 resolve한다.
-
-```csharp
-using SWeetJelly.Bootstrapper.Framework.Unity;
-using SWeetJelly.Serialization.Contract;
-
-var serialization = BootstrapperBehaviour.Services.Resolve<ISerializationService>();
-```
-
-## Custom Implementations
-
-`SerializationService`는 contract에 의존하므로, 테스트나 프로젝트에서 infrastructure 구현을 교체할 수 있다.
-
-교체 가능한 지점은 다음과 같다.
-
-- `IFileStorage`
-- `IPathProvider`
-- `ITextSerializer`
-- `IBinarySerializer`
-- `IStringEncryptor`
-
-예시:
-
-```csharp
-var service = new SerializationService(
-    fileStorage,
-    pathProvider,
-    jsonSerializer,
-    xmlSerializer,
-    binarySerializer,
-    encryptor);
-```
-
-## 설계 메모
-
-- 공개 API는 `SWeetJelly.Serialization.Contract`를 통해 노출한다.
-- Unity 파일 시스템 세부 구현은 `SWeetJelly.Serialization.Framework`에 둔다.
-- `SerializationService`는 Unity API에 의존하지 않는다.
-- 소비자는 concrete serializer 구현이 아니라 `ISerializationService`에 의존하는 것이 좋다.
-- Save, Loading, gameplay 시스템은 Serialization을 infrastructure service로 다룬다.
-
-## 현재 상태
-
-현재 이 패키지는 다음을 제공한다.
-
-- JSON 텍스트 직렬화
-- XML 텍스트 직렬화
-- 선택적 AES 문자열 암호화
-- persistent data path 저장/로드 helper
-- 명시적 경로 저장/로드 helper
-- Unity 파일 저장 adapter
-- Unity persistent data path adapter
-- Resources 텍스트/byte reader
-- Bootstrapper 연동
-
-Binary 직렬화는 아직 구현되어 있지 않다.
+[readme]: README.md
+[license]: LICENSE.md
+[migration]: docs/migration-2.0.md
+[encryption]: docs/encryption-format.md
+[sample]: Samples~/Basic/README.md
+[tests]: Tests/README.md
+[architecture]: ARCHITECTURE.md
